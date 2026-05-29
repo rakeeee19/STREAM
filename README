@@ -3,6 +3,16 @@
 STREAM is the de facto industry standard benchmark
 for measuring sustained memory bandwidth.
 
+This branch changes stream.c to measure only sequential
+WRITE and READ bandwidth.  The C binary accepts an
+optional runtime selector:
+
+   ./stream_c.exe both
+   ./stream_c.exe write
+   ./stream_c.exe read
+
+If no selector is provided, "both" is used.
+
 Documentation for STREAM is on the web at:
    http://www.cs.virginia.edu/stream/ref.html
 

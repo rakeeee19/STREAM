@@ -46,6 +46,7 @@
 # include <float.h>
 # include <limits.h>
 # include <sys/time.h>
+# include <string.h>
 
 /*-----------------------------------------------------------------------
  * INSTRUCTIONS:
@@ -192,6 +193,7 @@ static volatile STREAM_TYPE read_sink;
 
 extern double mysecond();
 extern void checkSTREAMresults();
+extern int parse_mode(int argc, char **argv);
 #ifdef TUNED
 extern void tuned_STREAM_Write(STREAM_TYPE value);
 extern STREAM_TYPE tuned_STREAM_Read();
@@ -200,11 +202,12 @@ extern STREAM_TYPE tuned_STREAM_Read();
 extern int omp_get_num_threads();
 #endif
 int
-main()
+main(int argc, char **argv)
     {
     int			quantum, checktick();
     int			BytesPerWord;
     int			k;
+    int			mode;
     ssize_t		j;
     STREAM_TYPE		read_sum;
     STREAM_TYPE		write_value;
@@ -214,6 +217,13 @@ main()
 
     printf(HLINE);
     printf("STREAM version $Revision: 5.10 $\n");
+    mode = parse_mode(argc, argv);
+    if (mode < 0) {
+	printf("Usage: %s [both|write|read]\n", argv[0]);
+	return 1;
+    }
+    printf("Selected kernels: %s\n",
+	mode == 0 ? "write, read" : (mode == 1 ? "write" : "read"));
     printf(HLINE);
     BytesPerWord = sizeof(STREAM_TYPE);
     printf("This system uses %d bytes per array element.\n",
@@ -300,6 +310,7 @@ main()
     for (k=0; k<NTIMES; k++)
 	{
 	write_value = (STREAM_TYPE) (k + 1);
+	if (mode == 0 || mode == 1) {
 	times[0][k] = mysecond();
 #ifdef TUNED
         tuned_STREAM_Write(write_value);
@@ -309,7 +320,14 @@ main()
 	    a[j] = write_value;
 #endif
 	times[0][k] = mysecond() - times[0][k];
+	} else {
+#pragma omp parallel for
+	for (j=0; j<STREAM_ARRAY_SIZE; j++)
+	    a[j] = write_value;
+	times[0][k] = 0.0;
+	}
 	
+	if (mode == 0 || mode == 2) {
 	read_sum = 0.0;
 	times[1][k] = mysecond();
 #ifdef TUNED
@@ -321,6 +339,9 @@ main()
 #endif
 	times[1][k] = mysecond() - times[1][k];
 	read_sink = read_sum;
+	} else {
+	times[1][k] = 0.0;
+	}
 	}
 
     /*	--- SUMMARY --- */
@@ -329,6 +350,8 @@ main()
 	{
 	for (j=0; j<2; j++)
 	    {
+	    if ((mode == 1 && j == 1) || (mode == 2 && j == 0))
+		continue;
 	    avgtime[j] = avgtime[j] + times[j][k];
 	    mintime[j] = MIN(mintime[j], times[j][k]);
 	    maxtime[j] = MAX(maxtime[j], times[j][k]);
@@ -337,6 +360,8 @@ main()
     
     printf("Function    Best Rate MB/s  Avg time     Min time     Max time\n");
     for (j=0; j<2; j++) {
+		if ((mode == 1 && j == 1) || (mode == 2 && j == 0))
+		    continue;
 		avgtime[j] = avgtime[j]/(double)(NTIMES-1);
 
 		printf("%s%12.1f  %11.6f  %11.6f  %11.6f\n", label[j],
@@ -353,6 +378,18 @@ main()
 
     return 0;
 }
+
+int
+parse_mode(int argc, char **argv)
+    {
+    if (argc <= 1 || strcmp(argv[1], "both") == 0)
+	return 0;
+    if (strcmp(argv[1], "write") == 0)
+	return 1;
+    if (strcmp(argv[1], "read") == 0)
+	return 2;
+    return -1;
+    }
 
 # define	M	20
 

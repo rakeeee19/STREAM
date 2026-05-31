@@ -24,6 +24,26 @@ COPY, SCALE, ADD, and TRIAD kernels:
 The stream_all.exe selector accepts:
    all, wr_rd, write, read, copy, scale, add, triad
 
+stream_sve.c provides an ARM SVE implementation for WRITE, READ,
+COPY, SCALE, ADD, and TRIAD.  Build it on an SVE-capable ARM Linux
+system with:
+
+   make stream_sve.exe
+
+or directly:
+
+   gcc -O3 -fopenmp -march=armv8-a+sve stream_sve.c -o stream_sve.exe
+
+Run it with the same selectors:
+
+   ./stream_sve.exe all
+   ./stream_sve.exe wr_rd
+   ./stream_sve.exe triad
+
+The SVE implementation uses double-precision SVE intrinsics.  If it is
+compiled without SVE enabled, it reports that SVE is not enabled and
+runs the scalar fallback path.
+
 Documentation for STREAM is on the web at:
    http://www.cs.virginia.edu/stream/ref.html
 
